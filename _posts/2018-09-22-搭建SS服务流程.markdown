@@ -1,0 +1,164 @@
+---
+layout:     post
+title:      "搭建 SS 服务流程"
+subtitle:   "总是借别人的梯子爬，今天自己搭个梯子吧！"
+date:       2018-09-22
+author:     "MeloGuo"
+header-img: "img/post-bg-shadowsocks.jpg"
+tags:
+    - Linux
+---
+
+之前使用的梯子都是市面上现成的收费服务，例如蓝灯之类。后来有朋友给我推荐了shadowsocks，并且把他的服务器借给了我。用了几个月感觉很爽，但是许多人公用一个毕竟速度会很不乐观。上youtube一般只能看480P的视频，所以一直想自己搭建一个SS服务器来享受高速的代理。
+
+# 搭建SS服务流程
+之前使用的翻墙服务都是市面上现成的收费服务，例如蓝灯之类。后来有朋友给我推荐了shadowsocks，并且把他的服务器借给了我。用了几个月感觉很爽，但是许多人公用一个毕竟速度会很不乐观。上youtube一般只能看480P的视频，所以一直想自己搭建一个SS服务器来享受高速的代理。
+
+## 购买VPS
+在一切操作之前，你需要有一个服务器。我是在[Vultr](https://www.vultr.com/)买的，最低配3.5刀一个月，500GB流量。购买成功后就会得到IP地址和密码，然后通过SSH登录就可以了。之前使用SSH都是简单的直接用SSH命令登录，也满足了基本需求。
+
+```shell
+# 你的服务器IP地址
+ssh root@***.***.***.***
+```
+
+## 安装SSServer
+先把所有的包都升级一下
+
+```shell
+sudo apt-get update
+sudo apt-get upgrade
+```
+
+然后安装pip，因为我们要通过pip去安装ssserver
+
+```shell
+sudo apt-get install python-pip
+sudo apt-get install python–m2crypto
+sudo pip install setuptools
+sudo pip install shadowsocks
+```
+
+如果在使用pip安装时出现类似如下错误：
+
+```shell
+Traceback (most recent call last):
+  File "/usr/bin/pip", line 11, in <module>
+    sys.exit(main())
+  File "/usr/lib/python3.4/site-packages/pip/__init__.py", line 215, in main
+    locale.setlocale(locale.LC_ALL, '')
+  File "/usr/lib64/python3.4/locale.py", line 592, in setlocale
+    return _setlocale(category, locale)
+locale.Error: unsupported locale setting
+```
+
+是因为环境变量`LC_ALL`丢失或者失效了，重新设置便可以：
+
+```shell script
+export LC_ALL=C
+```
+> 参考 [stackoverflow](https://stackoverflow.com/questions/36394101/pip-install-locale-error-unsupported-locale-setting)
+
+## 配置config文件
+在/etc文件夹下新建一个shadowsocks的文件夹。
+> 在Linux中，/etc文件夹用来存放配置文件
+
+```shell
+mkdir /etc/shadowsocks
+vi /etc/shadowsocks/shadowsocks.config.json
+```
+
+然后即可编辑`shadowsocks.config.json`文件，填写服务器配置：
+
+```json
+{
+  "server": "", // 服务器的外网地址
+  "server_port": 8388,
+  "local_address": "127.0.0.1",
+  "local_port": 1080,
+  "password": "", // 连接ss服务的密码
+  "timeout": 300,
+  "method": "aes-256-cfb", // 加密方案
+  "fase_open": false
+}
+```
+> 关于加密方式的对比可以看[此贴](https://www.echoteen.com/ss-m2crypt.html)。大概加密方式和速度的对应如下：
+> 
+```shell
+aes-128-cfb 0.368462085724s
+aes-128-ofb 0.400309085846s
+aes-192-cfb 0.452577829361s
+aes-192-ofb 0.381041049957s
+aes-256-cfb 0.418514966965s
+aes-256-ofb 0.405379056931s
+cast5-cfb 0.859935045242s
+cast5-ofb 0.911785125732s
+chacha20 0.429271936417s
+rc4 0.154517173767s
+rc4-md5 0.169504165649s
+salsa20 0.44139790535s
+```
+作者推荐使用chacha20加密。
+
+## 启动服务及后续操作
+
+#### 后台启动与关闭ss
+
+```shell
+ssserver -c /etc/shadowsocks/shadowsocks.config.json -d start
+ssserver -c /etc/shadowsocks/shadowsocks.config.json -d stop
+```
+
+如果要设置非root用户来运行ss，例如我的用户名MeloGuo：
+
+```shell
+ssserver -c /etc/shadowsocks/shadowsocks.config.json -d start --user MeloGuo
+```
+
+使用前请确保用户名`MeloGuo`存在。如果不存在请用以下命令创建：
+
+```shell
+sudo useradd MeloGuo
+```
+
+#### 设置开机启动服务
+将上述命令加入到下面打开的文件中`exit(0)`这行之前即可。
+```shell
+vi /etc/rc.local
+```
+
+
+#### 编写alias
+为了方便开启、关闭服务的操作，使用alias来简化命令：
+
+```shell
+vi ~/.zshrc # 打开zsh配置文件
+
+# 在配置文件中加入以下命令
+alias startSS="ssserver -c /etc/shadowsocks/shadowsocks.config.json -d start"
+alias stopSS="ssserver -c /etc/shadowsocks/shadowsocks.config.json -d stop"
+
+# 保存后读取配置文件
+source ~/.zshrc
+
+# 之后便可以在命令中使用
+startSS
+```
+
+## 客户端设置
+我需要翻墙的设备目前是MacBook Pro、iPad mini和OnePlus 6，均有各自平台所对应的客户端。在[官方文档](https://shadowsocks.org/en/download/clients.html)的指引下下载即可。下载设置完成后，尽情享受墙外的世界吧！
+
+> 如何让命令行也走代理？（Mac或Linux）
+> 在`~/.zshrc`中设置代理：
+> 
+```shell
+vi ~/.zshrc
+# 设置走ss代理
+export ALL_PROXY=socks5://127.0.0.1:1086
+# 重新读取配置
+source ~/.zshrc
+```
+
+#### 著作权声明
+
+本文作者 [郭梓梁](https://www.zhihu.com/people/mluka/activities)，首次发布于 [MeloGuo Blog](http://meloguo.com)，转载请保留以上链接
