@@ -1,0 +1,84 @@
+---
+layout:     post
+title:      "常用的canvas函数"
+subtitle:   "还用 canvas 写了一个设计小游戏"
+date:       2018-02-27
+author:     "MeloGuo"
+header-img: "img/post-bg-js-version.jpg"
+tags:
+    - JavaScript
+    - Canvas
+---
+
+## 常用 API
+
+* 获取目标元素
+```javascript
+var myCanvas = document.getElementById("canvas");
+var context = myCanvas.getContext("2d");
+```
+* 绘制矩形
+```javascript
+context.fillRect(x, y, width, height); // 绘制实心矩形
+context.strokeRect(x, y, width, height); // 绘制空心矩形
+```
+* 绘制路径
+```javascript
+context.beginPath(); // 开始绘制路径
+context.moveTo(x, y); // 路径开始点坐标
+context.lineTo(x, y); // 路径结束点坐标
+context.stroke(); // 绘制空心路径
+context.fill(); // 绘制实心路径
+context.closePath(); // 绘制路径结束
+```
+* 绘制文字
+```js
+context.font = "60px 黑体"; // font信息，至少包含字体大小和字体名称
+context.fillText(text, x, y); // 绘制实心文字
+context.strokeText(text, x, y); // 绘制空心文字
+```
+* 绘制样式
+```js
+context.fillStyle = "red"; // 实心颜色
+context.strokeStyle = "#ff4355"; // 空心颜色
+context.lineWidth = 32; // 
+```
+* 绘制其他
+```js
+context.arc(x, y, r, startAngle, endAngle, false);
+// 绘制圆形x,y为圆心坐标，r为圆的半径，sA为圆的开始弧度，eA为圆结束的
+// 弧度，false表示按顺时针方向绘制，true的话为逆时针。  
+// 例如一个圆为：  
+context.arc(100, 100, 100, 0, 2*Math.PI, false);
+/**********************************************/
+context.drawImage(image, x, y, width, height);
+// 传入一个图片实例，绘制在画布上
+context.drawImage(image, sx, sy, sw, sh, x, y, width, height);
+// 对图片进行剪裁
+context.clearRect(x, y, width, heigth); // 清除画布
+```
+
+## requestAnimationFrame
+
+他是干嘛的呢？在早期浏览器中实现动画是使用setTimeOut和setInterval，但是我们知道JS是单线程的，setTimeOut和setInterval中的任务会被存到异步队列中，等待同步队列中的任务执行完成才会被加载执行，所以如果在同步队列中遇到了执行非常缓慢的任务，那么异步队列中的任务就只能等待了。但是如果这样画面就会出现卡顿，体验很糟糕。  
+而requestAnimationFrame的出现就是为了解决这个问题，它是专门为实现高性能的帧动画而设计的一个API，以每秒60帧的效率来渲染动画，目前已在多个浏览器得到了支持，你可以把它用在 DOM 上的效果切换或者 Canvas 画布动画中。   
+**在多个浏览器的兼容方法如下:**
+```js
+window.requestAnimaFrame = 
+window.requestAnimationFrame ||
+window.webkitRequestAnimationFrame ||
+window.mozRequestAnimationFrame ||
+window.oRequestAnimationFrame ||
+window.msRequestAnimationFrame ||
+function(callback) {
+    window.setTimeout(callback, 1000 / 30);
+};
+```  
+
+## Canvas 小游戏
+
+学习完 API 就要学以致用，所以写了一个射击小游戏：[Canvas 射击小游戏](https://github.com/MeloGuo/CanvasShotGame)
+
+#### 著作权声明
+
+本文作者 [郭梓梁](https://www.zhihu.com/people/mluka/activities)，首次发布于 [MeloGuo Blog](http://meloguo.com)，转载请保留以上链接

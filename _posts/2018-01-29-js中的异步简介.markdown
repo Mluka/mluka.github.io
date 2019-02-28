@@ -1,0 +1,127 @@
+---
+layout:     post
+title:      "JS中的异步简介"
+subtitle:   ""
+date:       2018-01-29
+author:     "MeloGuo"
+header-img: "img/post-bg-js-version.jpg"
+tags:
+    - JavaScript
+---
+
+# 异步
+
+
+## 同步与异步
+同步：等待结果
+异步：不等待结果
+经常和同步异步一起出现的一对词语是`阻塞与非阻塞`
+
+### 前端经常遇到的异步
+```javascript
+// 图片加载是异步的
+
+document.getElementsByTagName('img')[0].width // 宽度为0
+
+document.getElementsByTagName('img')[0].onload = function () {
+  console.log(this.width) // 宽度不为0
+}
+```
+
+### 面试题中的异步
+
+```javascript
+let liList = document.querySelectorAll('li')
+for (var i = 0; i < liList.length; i++) {
+  liList[i].onclick = function () {
+    console.log(i)
+  }
+}
+```
+答：把var换成let即可正常展示
+
+### AJAX中的异步
+
+```javascript
+$.ajax({
+  url: '/',
+  async: true,
+  success: function (responseText) {
+    console.log(responseText)
+  }
+})
+```
+### 异步的形式
+1. 傻逼方法：轮询
+2. 正规方法：回调
+
+### 回调的形式
+1. Node.js的error-first形式
+```javascript
+fs.readFile('./1.txt', (error, content) => {
+      if (error) {
+        // 失败
+      } else {
+        // 成功
+      }
+}
+```
+
+2. jQuery的success/error形式
+```javascript
+$.ajax({
+      url: '/xxx',
+      success: () => {},
+      fail: () => {}
+})
+```
+
+3. jQuery的done/fail/always形式
+```javascript
+$.ajax({
+      url: '/xxx',
+}).done(() => {}).fail(() => {}).always(() => {})
+```
+
+4. Promise的then形式
+```javascript
+$.ajax({
+      url: '/xxx',
+}).then( () => {}, () => {}).then( () => {}, () => {}).catch(() => {})
+```
+
+Promise中的catch函数相当于then第一个参数不传的语法糖。
+
+我们为什么要用Promise？因为躲避回调地狱，或者实现一些复杂需求，例如：并行执行两个异步操作，当两个操作都结束时通知你；或者同时进行两个异步操作，只取优先完成的操作结果。
+
+### 自己写一个Promise
+
+```javascript
+function ajax () {
+  return new Promise((resolve, reject) => {
+    // 做事
+    // 如果成功就调用resolve
+    // 如果失败就调用reject
+  })
+}
+
+var promise = ajax()
+promise.then(successFn, errorFn)
+```
+
+#### Promise中的流程
+例如上面的代码，如果执行成功后走successFn。
+
+```javascript
+promise.then(successFn, errorFn) // 一
+    .then(successFn, errorFn) // 二
+    .then(successFn, errorFn) // 三
+```
+如果promise中的函数如果发生错误只能通过调用reject回调来传递出来，否则发生其他错误是没法在.then方法中进行捕获的。
+如果在一.then的successFn中成功，那么会调用二.then中的successFn。
+如果在一.then的successFn中失败或者报错，那么会调用二.then中errorFn，如果没报错则调用三.then中successFn。
+如果二.then中的errorFn中也报错的话就调用三.then中的errorFn。
+
+#### 著作权声明
+
+本文作者 [郭梓梁](https://www.zhihu.com/people/mluka/activities)，首次发布于 [MeloGuo Blog](http://meloguo.com)，转载请保留以上链接

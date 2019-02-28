@@ -1,0 +1,236 @@
+---
+layout:     post
+title:      "协程、co.js 和 async/await"
+subtitle:   "你用过 co.js 么？"
+date:       2018-11-15
+author:     "MeloGuo"
+header-img: "img/post-bg-js-version.jpg"
+tags:
+    - JavaScript
+    - 原理
+---
+
+## 协程（Coroutine）
+协程的概念是相对多进程或者多线程来说的，他是一种协作式的用户态线程
+1. 与之相对的，线程和进程是以抢占式执行的，意思就是系统帮我们自动快速切换线程和进程来让我们感觉同步运行的感觉，这个切换动作由系统自动完成
+2. 协作式执行说的就是，想要切换线程，你必须要用户手动来切换
+协程为什么那么快原因就是因为，无需系统自动切换（系统自动切换会浪费很多的资源），而协程是我们用户手动切换，而且是在同一个栈上执行，速度就会非常快而且省资源。
+
+但是，协程有他自己的问题：协程只能有一个进程，一个线程在跑，一旦发生IO阻塞，这个程序就会卡住。
+
+所以我们要使用协程之前，必须要保证我们所有的IO都必须是非阻塞的。也就是需要异步。
+
+意思是多个线程互相协作，完成异步任务。
+
+```javascript
+function asyncJob () {
+  // ...
+  const file = yield readFile(fileA)
+  // ...
+}
+```
+协程遇到 yield 命令就暂停，等到执行权返回，再从暂停的地方继续往后执行。它的最大优点，就是代码的写法非常像同步操作，如果去除yield命令，简直一模一样。
+
+### Generator 函数是协程在 ES6 的实现
+它还有两个特性，使它可以作为异步编程的完整解决方案：函数体内外的数据交换和错误处理机制。
+
+可以通过 yield 操作符交出函数的执行权。
+yield关键字使生成器函数执行暂停，yield关键字后面的表达式的值返回给生成器的调用者。它可以被认为是一个基于生成器的版本的return关键字。
+
+传递给next()的值将被视为暂停生成器的最后一个yield表达式的结果。
+
+### Thunk 函数
+Thunk 函数是“传名调用”的一种实现策略，用来替换某个表达式。
+而 JS 是“传值调用”的，所以在 JS 中 Thunk 函数替换的不是表达式，**而是多参函数，将其替换成单参数的版本，且只接受回调函数作为参数。**
+> 其实 Thunk 的意义就是将多参函数转化成只接受回调函数为参数的单参函数，然后方便去递归调用来自动运行迭代器从而实现异步任务。
+
+# co.js
+Generator 函数就是一个异步操作的容器。他的自动执行需要一种机制，当异步有了结果，能够自动交回执行权。
+1. 回调 将异步操作包装成 Thunk 函数，在回调里交回执行权。
+2. Promise 将异步操作包装成 Promise 对象，用 then 方法交回执行权。
+
+--
+回调的问题：回调地狱
+假设现在有三个文件 A，B，C 要按顺序获取，然后将三个文件内容写进文件 D，那么就得写成这样：
+
+```javascript
+let result = ''
+fs.readFile('fileA', (error, data) => {
+  result += data.toString()
+  if (error) throw error
+  fs.readFile('fileB', (error, data) => {
+    result += data.toString()
+    if (error) throw error
+    fs.readFile('fileC', (error, data) => {
+      result += data.toString()
+      if (error) throw error
+      fs.writeFile('fileD', result, (error) => {
+        if (error) throw error
+        console.log('文件已保存')
+      })
+    })
+  })
+})
+```
+可以看到，仅仅是一个简单的需求就已经嵌套了多层的回调，更不用说复杂的场景了。
+
+为了解决这个问题，ES6 中加入了 Promise
+Promise的问题：
+我们使用 Promise 来重写上个需求。
+
+```javascript
+// 首先封装两个返回 Promise 对象的函数
+const readFile = function (fileName) {
+  return new Promise((resolve, reject) => {
+    fs.readFile(fileName, (error, data) => {
+      if (error) reject(error)
+      resolve(data)
+    })
+  })
+}
+
+const writeFile = function (fileName, data) {
+  return new Promise((resolve, reject) => {
+    fs.writeFile(fileName, data, (error) => {
+      if (error) reject(error)
+      resolve('文件已保存')
+    })
+  })
+}
+
+// 接下来就可以使用 Promise
+let result = ''
+readFile('fileA').then((data) => {
+  result += data.toString()
+  return readFile('fileB')
+}).then((data) => {
+  result += data.toString()
+  return readFile('fileC')
+}).then((data) => {
+  result += data.toString()
+  return writeFile('fileD', result)
+}).then(() => {
+  console.log('文件已保存')
+}).catch((error) => {
+  throw error
+})
+```
+可以看到，在使用 Promise 之后就没有了“回调地狱”的现象，非常便于维护。但是新的问题又出现了，取代回调地狱的是一大堆`.then`，依然破坏了代码的语义性，还是很不爽。
+知道有一天，async/await 出现了，它让我们能以同步的方式来写异步代码。
+
+```javascript
+async function makeFileD () {
+  let result = ''
+  try {
+    result += await readFile('fileA')
+    result += await readFile('fileB')
+    result += await readFile('fileC')
+    await writeFile('fileD', result)
+    console.log('文件已保存')
+  } catch (error) {
+    throw error
+  }
+}
+
+makeFileD() // 文件已保存
+```
+每天用着 async/await 很爽，可是心里却一直有疑惑，这玩意是怎么做到的啊......于是抱着这样的疑问，便有了这篇文章的产生。
+
+--
+观察 async/await 的模式可以发现，当函数执行到 await 操作符时，会将当前的执行权限交给 readFile 函数，等执行完成再将结果返回给 result 变量。在 ES6 中的 yield 操作符和 await 的功能十分相像，都是把当前程序的执行权交给另一个地方。不同的是 await 会自动返回函数调用的结果，而 yield 需要外部显式调用 .next(value) 才会把结果传回来。那来通过 generator 模仿一下 async/await 的写法。
+
+```javascript
+function * makeFileD () {
+  let result = ''
+  try {
+    result += yield readFile('fileA')
+    result += yield readFile('fileB')
+    result += yield readFile('fileC')
+    console.log(yield writeFile('fileD', result))
+  } catch (error) {
+    throw error
+  }
+}
+```
+和之前的 async / await 对比一下，在形式上没区别，只是把 `*`换成了 async 然后放到 function 的前面，再把 yield 换成 await。虽然在函数定义的形式上差别不大，但是在调用上就完全不一样。
+
+```javascript
+const iterator = makeFileD()
+```
+makeFileD 本质上还是一个生成器，所以调用它返回的是一个迭代器。而迭代器提供了一个 next 方法，用来返回序列中的下一项。这个方法返回包含两个属性：done 和 value。
+
+```javascript
+console.log(iterator.next()) // { value: Promise { <pending> }, done: false }
+```
+调用 next 方法返回的 .value 是一个 Promise 对象，这正是 readFile 函数返回的内容。
+```javascript
+iterator.next().value.then((data）=> {
+    iterator.next(data.toString()) // 将 readFile 获得的数据返回到 makeFileD 函数中，也就是赋值给 result
+})
+```
+根据这个模式，我们可以很清楚的写出需求代码。
+```javascript
+iterator.next().value.then((data) => {
+  iterator.next(data.toString()).value.then((data) => {
+    iterator.next(data.toString()).value.then((data) => {
+      iterator.next(data.toString()).value.then((data) => {
+        iterator.next(data) // 文件已保存
+      })
+    })
+  })
+})
+```
+写完之后你应该就发现了，这是一个递归调用！所以我们把这个模式抽象一下，让它自动运行。
+
+```javascript
+function co (generator) {
+  const iterator = generator()
+
+  function step (data) {
+    let result = iterator.next(data)
+    if (result.done) return result.value
+    result.value.then((data) => {
+      step(data)
+    })
+  }
+
+  step()
+}
+```
+在这个函数中，只要迭代器 iterator 还没走到最后一步，说明还有 yield 任务没有执行万，step 就会一直递归调用自身，从而实现自动交换程序执行权。我为什么给这个函数起名为 co 呢？其实是因为 co 是大名鼎鼎的 tj 大神开发的一个库，co 就是 coroutine（协程） 的缩写。就是这样的一个基于生成器的流控制解决方案。接下来安装 co，体验一下和我们的区别：
+
+```shell
+npm install co
+```
+和我们不同的是，调用 co 会返回一个 Promise 对象，是在所有的 yield 操作符后的异步任务执行完成后返回，如下：
+```javascript
+co(makeFileD).then(() => { // 文件已保存
+  console.log('异步任务执行完成')  // 异步任务执行完成
+}) 
+```
+co 还给我们提供了一个 API，将一个生成器函数转换成普通函数的形式，方便调用。
+
+```javascript
+const makeFileD = co.wrap(function* () {
+  let result = ''
+  try {
+    result += yield readFile('fileA')
+    result += yield readFile('fileB')
+    result += yield readFile('fileC')
+    console.log(yield writeFile('fileD', result))
+  } catch (error) {
+    throw error
+  }
+})
+makeFileD() // 文件已保存
+// 被包装的函数调用后也会返回一个 Promise 对象
+// makeFileD().then(() => {
+//
+//})
+```
+这样 makeFileD 函数就更像 async/await 的形式了！所以我们可以看出，async/await 就是一颗借助协程概念和迭代器实现的甜甜的语法糖。
+
+
+#### 著作权声明
+
+本文作者 [郭梓梁](https://www.zhihu.com/people/mluka/activities)，首次发布于 [MeloGuo Blog](http://meloguo.com)，转载请保留以上链接

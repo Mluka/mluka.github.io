@@ -1,0 +1,208 @@
+---
+layout:     post
+title:      "React中的受控组件与非受控组件"
+subtitle:   "或许我曾经误会了非受控"
+date:       2018-10-08
+author:     "MeloGuo"
+header-img: "img/post-bg-react.png"
+tags:
+    - JavaScript
+    - React
+---
+
+# 受控组件、非受控组件与混合组件
+我们都知道在 React 中有两个概念分别是受控组件与非受控组件。文档中推荐在大多数情况下推荐使用受控组件去实现表单，但是许多文章又推荐非受控组件，并且在一些面试题中还提到了混合组件。这篇文章就是为了剖析这三种的使用情境和实现方法。
+
+## 定义
+### 受控组件
+在受控组件中，表单数据是被 React 组件所控制的。表单的 value 由组件维护。当我们在处理一个受控组件的时候，你应该始终传一个 value 属性进去，并且注册一个 onChange 的辅助方法来让组件变得可变。正是每一个表单都需要一个和 UI 对应的数据，所以组件的 state 就会变得复杂和混乱。
+
+```javascript
+class Input extends React.Component {
+  constructor() {
+    super()
+    this.state = {
+      value: '',
+      checked: false
+    }
+  }
+
+  handleChange = ({target: {value}}) => {
+    this.setState({ value })
+  }
+
+  handleSubmit = (event) => {
+    console.log('提交的姓名为：', this.state.value)
+    event.preventDefault()
+  }
+
+  render() {
+    return (
+      <form onSubmit={this.handleSubmit}>
+        <label>
+          Text:
+          <input type="text" value={this.state.value} onChange={this.handleChange} />
+        </label>
+        <label>
+          CheckBox:
+          <input type="checkbox" checked={this.state.checked} onChange={({target: {checked}}) => (this.setState({ checked }))} />
+        </label>
+        <input type="submit" value="Submit" />
+      </form>
+    )
+  }
+}
+```
+
+### 非受控组件
+在非受控组件中，表单的 value 并不是由组件控制。就像传统原生表单一样，通过 Ref 来操作 DOM 获取表单的值再加以操作。但在这种情况下是无法通过外部值来修改表单中的值，因为它是不受控的！
+
+```javascript
+class Input extends React.Component {
+  constructor() {
+    super()
+
+    this.myInput = React.createRef()
+  }
+
+  handleSubmit = (event) => {
+    console.log('提交的姓名为：', this.myInput.current.value)
+    event.preventDefault()
+  }
+
+  render() {
+    return (
+      <form onSubmit={this.handleSubmit}>
+        <label>
+          Name:
+          <input type="text" ref={this.myInput} />
+        </label>
+        <input type="submit" value="Submit" />
+      </form>
+    )
+  }
+}
+```
+
+## 适用范围
+受控和非受控组件都有各自的优缺点和适用范围，所以应评估具体情况来选择合适的方法。下面这个表格可以帮助决定使用哪种组件。最简单的一种判断方法是，受控组件其 UI 和数据是一致的。所以凡是对数据有即时跟随输入改变的需求都是应该使用受控组件的。
+
+| 特性 | 非受控组件 | 受控组件 |
+| --- | --- | --- |
+| 一次性使用（例：submit） | ✅ | ✅ |
+| 提交时验证 | ✅  | ✅ |
+| 即时表单验证 | ❌ | ✅ |
+| 按照条件禁用提交按钮 | ❌ | ✅ |
+| 强制输入格式化 | ❌ | ✅ |
+| 多个输入数据合并 | ❌ | ✅ |
+| 动态输入 | ❌ | ✅ |
+
+## 受控与非受控混合组件
+在一个面试题中，以`<input type="text" />`标签为例，实现一个支持受控又支持非受控的Input组件。在初始我看到这个题非常困惑，因为我对受控与非受控
+
+```javascript
+class Input extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = {
+      value: this.props.defaultValue || '' // 用于非受控状态下维护自我状态
+    }
+  }
+
+  handleChange = ({target: {value}}) => {
+    this.props.onChange && this.props.onChange(value)
+  }
+
+  render() {
+    // input 的值只由外部控制，这是受控状态
+    return (
+      <input value={this.props.value} onChange={this.handleChange} />
+    )
+  }
+}
+
+class App extends React.Component {
+  constructor() {
+    super()
+    this.state = {
+      value: ''
+    }
+  }
+
+  handleSubmit = ({ target: { value } }) => {
+    this.setState({ value })
+  }
+
+  render () {
+    return (
+      <Input value={this.state.value} onChange={this.handleSubmit} />
+    )
+  }
+}
+```
+### 非受控输出
+现在组件是受控状态，因为展示的值全部来自于`props`，接下来将组件展示的值由`props`替换成一个`getter`。
+
+```javascript
+get displayValue() {
+  return this.props.value === undefined ?
+  this.state.value : this.props.value
+}
+
+// 展示时使用 this.displayValue
+<input value={this.displayValue} />
+```
+### 非受控输入
+非受控状态下的输出已经解决，但是输入现在依然是无效的。因为由组件内部`state`接管状态后没有函数去更新。所以需要改造下`handleChange`函数。
+
+```javascript
+handleChange = ({target: {value}}) => {
+  if (value === this.state.value) {
+    return
+  }
+    
+  this.setState({
+    value
+  }, () => {
+    this.props.onChange && this.props.onChange(value)
+  })
+}
+```
+将值同步到`state.value`可以保证组件即使是非受控的也总能渲染出最新的值。通过请求一个外部的更新会告诉上面的组件基于`props.value`执行修改，这样受控的组件也能渲染出正确的值。
+
+### 受控的`props`同步组件内部`state`
+为了能修改内部的value以及在handleChange中执行正确的操作，需要将props.value和state.value进行同步
+```javascript
+static getDerivedStateFromProps(nextProps, prevState) {
+  const controlledValue = nextProps.value;
+  if (controlledValue !== undefined && controlledValue !== prevState.value) {
+    return {
+      value: controlledValue
+    };
+  }
+    
+  return null;
+}
+```
+
+### 阻止二次渲染
+在组件是受控组件式应该由`props`的变化来控制渲染，非控制组件下则是由`state`来控制渲染。
+```javascript
+shouldComponentUpdate(nextProps, nextState) {
+    // 受控状态下
+    if (nextProps.value !== undefined) {
+      return nextProps.value !== this.props.value
+    }
+
+    // 非受控状态下
+    return nextState.value !== this.state.value
+}
+```
+
+
+### 总结一下
+实现一个混合组件主要思想是同时维护`props.value`和`state.value`的值。`props.value`在展示上拥有更高的优先级，`state.value`代表着组件真正的值。只要遵循这两条原则便可以轻松地理解混合组件。
+
+#### 著作权声明
+
+本文作者 [郭梓梁](https://www.zhihu.com/people/mluka/activities)，首次发布于 [MeloGuo Blog](http://meloguo.com)，转载请保留以上链接

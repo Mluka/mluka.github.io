@@ -1,0 +1,165 @@
+---
+layout:     post
+title:      "我们为什么需要let与const"
+subtitle:   "因为var就是个垃圾。 - 鲁迅"
+date:       2018-08-10
+author:     "MeloGuo"
+header-img: "img/post-bg-js-version.jpg"
+tags:
+    - JavaScript
+---
+
+ES6创造出一个新东西，那必然是为了解决原有的问题。而在ES5中声明变量用的var关键字是真的有一大堆问题。
+### 变量提升  
+用var声明的变量会提升(Hoisting)真的是个很恶心的事。  
+
+```javascript
+function foo () {
+  console.log(a)
+  var a = 1
+}
+foo() // undefined
+```  
+明明我们是在`console.log`语句下方声明的a变量并且给他赋值为1，但是在声明前却可以访问到变量`a`，而且值为`undefined`。
+```javascript
+function foo () {
+  console.log(a)
+}
+foo() // ReferenceError: a is not defined
+```
+在这里，未声明变量`a`却还访问的结果就是会报错。
+```javascript
+function foo () {
+  var a = 1
+  console.log(a)
+}
+foo() // 1
+```
+这样的声明、赋值、打印出的结果才是符合逻辑的结果。所以其实变量提升这个行为是不符合代码直观的看起来的逻辑的。
+
+如果使用let
+```javascript
+function foo () {
+  console.log(a) // ReferenceError: a is not defined
+  let a = 1
+}
+```
+呼！在声明变量之前访问变量会报错，这样就合理多了。
+### 没有块级作用域
+在ES5中，只有全局作用域和函数作用域而没有块级作用域，也就是说：
+
+```javascript
+var a = 1
+{
+  var a = 2
+}
+console.log(a) // 2
+```
+明明已经在`{}`中重新声明了a并且赋值为2，但是在块外访问`a`的值却是2，在ES5中如果想把`var a = 2`封闭在花括号内就必须使用IIFE。
+
+```javascript
+var a = 1
+;(function () {
+  var a = 2
+}())
+console.log(a) // 1
+```
+通过函数作用域模拟块级作用域才能实现，但是这个语法真的很奇葩。
+
+但是在ES6中我们有了let和const，以上的问题就全部迎刃而解了。
+
+原来‘临时死区’不仅是不会提升，也不会通过作用域链去寻找变量。但是在let声明的块级作用域。
+```javascript
+{
+  let a = 1
+  {
+    console.log(a) // ReferenceError: a is not defined
+    let a = 2
+    {
+      let a = 3
+    }
+  }
+}
+```
+
+### 经典面试题
+
+```html
+<ul>
+  <li>Item1</li>
+  <li>Item2</li>
+  <li>Item3</li>
+  <li>Item4</li>
+  <li>Item5</li>
+  <li>Item6</li>
+</ul>
+```
+```javascript
+var navs = document.querySelectorAll('li')
+
+for (var i = 0; i < navs.length; i++) {
+  navs[i].onclick = function () {
+    console.log(i)
+  }
+}
+```
+这时候点击所有`li`标签都会打印出6。
+
+解决方法1：使用IIFE
+
+```javascript
+var navs = document.querySelectorAll('li')
+
+for (var i = 0; i < navs.length; i++) {
+  (function (i) {
+    navs[i].onclick = function () {
+      console.log(i)
+    }
+  })(i)
+}
+```
+解决方法2：使用let
+```javascript
+var navs = document.querySelectorAll('li')
+
+for (let i = 0; i < navs.length; i++) {
+  let j = i
+  navs[j].onclick = function () {
+    console.log(j)
+  }
+}
+```
+
+除此之外还有一种神奇的方法
+```javascript
+var navs = document.querySelectorAll('li')
+
+for (let i = 0; i < navs.length; i++) {
+  navs[i].onclick = function () {
+    console.log(i)
+  }
+} // This is a magic
+```
+
+但是为什么`let i`就可以？`let i`最终也会在循环结束后和`var i`一样变成6，那么为什么`console.log(i)`时候就不会都是6呢？
+其实JS在这里做了很多隐藏的操作来帮助开发者在循环中方便的使用let达到这种效果。
+* 在`for`循环的括号之中有一个隐藏的作用域。
+* 每次循环时，循环的括号作用域中的i都会被赋值到循环体的块级作用域中的i
+
+```javascript
+var navs = document.querySelectorAll('li')
+
+for (let _i = 0; _i < navs.length; _i++) {
+  let i = _i
+  navs[i].onclick = function () {
+    console.log(i)
+  }
+}
+```
+
+其实就相当于第二种`let j = i`的语法糖。
+> 有兴趣可以看看这个[视频](https://www.youtube.com/watch?v=Nzokr6Boeaw&t=85s)。
+
+#### 著作权声明
+
+本文作者 [郭梓梁](https://www.zhihu.com/people/mluka/activities)，首次发布于 [MeloGuo Blog](http://meloguo.com)，转载请保留以上链接

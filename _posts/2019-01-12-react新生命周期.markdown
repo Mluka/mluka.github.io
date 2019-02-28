@@ -1,0 +1,121 @@
+---
+layout:     post
+title:      "React 的生命周期新变化与老用法"
+subtitle:   "爷爷，React 生命周期函数又变啦"
+date:       2019-01-12
+author:     "MeloGuo"
+header-img: "img/post-bg-react.png"
+tags:
+    - JavaScript
+    - React
+---
+
+## React 全新的生命周期函数
+![react-lifecycle](https://ws1.sinaimg.cn/large/0070gOERly1g0563vltzgj318g0qcaer.jpg)
+
+React 在 16+ 版本经历了重大的生命周期函数的更新，取消了`componentWillMount`, `componentWillReceiveProps`和`componentWillUpdate`。增加了两个新函数，为`getDerivedStateFromProps`和`getSnapshotBeforeUpdate`。
+
+可以看到曾经在 Mounting 和 Updating 阶段名字中有 Will 的函数都被取消了。究其原因是 Fiber 架构的改变：
+
+在 React 16 中，某些生命周期可能会被调用多次，这是因为在 Fiber 架构下的 reconciler 阶段会被调用多次。即包括 willxxx 的生命周期都包括。从语义角度讲，这样重复调用的行为是不符合 willxxx 函数的语义，为什么明明已经 will 过了又再次 will 呢？从安全角度讲，在 componentWillMount 函数中，开发者经常初始化状态、操作 DOM。如果在重复调用中高频率的操作 DOM 导致的页面重绘就会造成性能问题。
+
+### getDerivedStateFromProps 解决的问题
+和其他生命周期不同，此函数是一个静态函数，这也就意味着其不能操作 DOM，不能访问此组件的方法、属性、状态。在文档中，也解释的很清楚：你应该少量谨慎的使用此函数，其只有一个目的，便是根据属性改变的结果去更新组件的内部状态。
+
+```javascript
+class App extends React.Component {
+  constructor() {
+    super()
+    this.state = {
+      m: 0
+    }
+  }
+
+  static getDerivedStateFromProps(nextProps, prevState) {
+    console.log("getDerived", nextProps, prevState);
+    if (nextProps.n !== prevState.m) {
+      // 这里 return 的对象相当于 setState 了
+      return {
+        m: nextProps.n
+      }
+    }
+
+    return null
+  }
+  
+  render() {
+    return (
+      <div>{m}</div>
+    )
+  }
+}
+```
+这样设计下的新函数便逻辑简单，不容易出错。
+
+### getSnapshotBeforeUpdate
+还没深入研究，略。
+
+## 老生命周期函数的推荐作用
+### constructor
+  * 初始化 state
+  * 绑定事件处理函数
+
+> 不要调用 this.setState，而是通过赋值 this.state
+
+```javascript
+class App extends React.Component {
+  constructor (props) {
+    super(props)
+    this.state = { xxx: 'xxx' }
+    this.handlexxx = this.handlexxx.bind(this)
+  }
+}
+```
+
+### componentDidMount
+* 初始化 DOM 节点
+* 发送 ajax 请求
+* 设置定时器或订阅事件
+
+> 在此函数中立即 setState 会触发一次额外渲染，但是用户并不会看到中间状态的变化。谨慎使用这个特性，可能会造成性能问题。
+
+### componentDidUpdate
+* 操作 DOM 节点
+* 发送 ajax 请求
+
+此函数接受三个参数，更新前的属性、状态和快照。和 componentDidMount 类似，此阶段进行的推荐根据属性、状态和快照的变化进行 DOM 的操作或者网络请求。
+```javascript
+componentDidUpdate (prevProps, prevState, snapshot) {
+  if (this.props.userID !== prevProps.userID) {
+    this.fetchData(this.props.userID);
+  }
+}
+```
+
+### componentWillUnmount
+这是 unmount 阶段唯一的生命周期，在这里进行的是善后工作：清理计时器、取消网络请求或者取消事件监听等。
+
+### shouldComponentUpdate
+* 手动判断是否进行组件更新
+* 避免不必要的更新以提高性能
+
+此函数接受两个参数，开发者需要根据自己的判断手动的决定更新或者不更新，我没有过太多实践，文档也不推荐频繁使用。
+```javascript
+shouldComponentUpdate (nextProps, nextUpdate) {
+  if ('xxx') {
+    return true // 执行接下来的生命周期
+  }
+  
+  return false // 停止执行
+}
+```
+
+## 关于 React 生命周期的面试题
+1. 描述一下 React 的生命周期函数（新/旧）
+2. 应该在什么阶段发出 ajax 请求？
+3. shouldUpdateComponent 函数有什么用？
+4. setState 被调用后哪些函数会被触发
+
+#### 著作权声明
+
+本文作者 [郭梓梁](https://www.zhihu.com/people/mluka/activities)，首次发布于 [MeloGuo Blog](http://meloguo.com)，转载请保留以上链接

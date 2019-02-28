@@ -1,0 +1,226 @@
+---
+layout:     post
+title:      "Gulp 学习笔记"
+subtitle:   "虽然过时了，但也了解下"
+date:       2018-05-10
+author:     "MeloGuo"
+header-img: "img/post-bg-js-version.jpg"
+tags:
+    - JavaScript
+    - 工具
+---
+
+在学习Gulp之前我只简单的在demo中使用过webpack，而从来没有尝试过gulp。正好在这次学习小程序的过程中，看到一个使用gulp进行小程序构建的教程，所以趁此机会学习一下gulp的使用。
+
+> 最近使用gulp时候遇到了一个问题，就是安装执行失败，后来发现是版本问题。[解决方法](https://github.com/babel/gulp-babel/issues/124)
+>
+```shell
+# 新版本
+npm install -D gulp-babel @babel/core @babel/preset-env
+# 旧版本
+npm install -D gulp-babel@7 babel-core babel-preset-env
+```
+> gulp dev --type prod报错问题。[解决方法](https://github.com/gulpjs/gulp/issues/1564)：
+> 
+```shell
+npm uninstall -g gulp
+npm install --global gulp-cli
+gulp dev --type prod
+```
+>
+> 在npm script中启动gulp，配置package.json
+```javascript
+"prod": "`npm -g bin`/gulp dev --type prod"
+```
+在命令行输入：`npm run prod`即可
+
+## gulp 最核心的功能：
+gulp是一个task runner
+1. 任务定义和组织；
+2. 基于文件 stream 的构建；
+3. 插件体系；
+
+## 常用API
+### gulp.src(globs[, options])
+> 输出（Emits）符合所提供的匹配模式（glob）或者匹配模式的数组（array of globs）的文件。 将返回一个 Vinyl files 的 stream 它可以被 piped 到别的插件中。
+
+第一个参数的匹配模式为glob模式，匹配规则可以在GitHub中浏览：[node-glob](https://github.com/isaacs/node-glob)
+
+它的返回值为一个Vinyl files的stream，Vinyl是一个非常简单的描述文件的元数据对象。当你想获得一个文件时，就会需要两个属性：`路径`和`内容`。这就是Vinyl对象的主要属性。（[详情](https://github.com/gulpjs/vinyl)）
+
+示例代码：
+
+```javascript
+// 获取src目录下的所有.wxml文件，返回它们的stream
+gulp.src(`${src}/**/*.wxml`)
+```
+
+### gulp.dest(path[, options])
+> 能被 pipe 进来，并且将会写文件。并且重新输出（emits）所有数据，因此你可以将它 pipe 到多个文件夹。如果某文件夹不存在，将会自动创建它。
+
+通过gulp.src获取的source可以通过stream的形式流入gulp.dest中，并被输出到参数中的destination。
+
+示例代码：
+
+```javascript
+gulp
+  .src(`${src}/**/*.wxml`)
+  // 将src中的文件输出到./dist文件夹中
+  .pipe(gulp.dest('./dist')
+```
+
+### gulp.task(name[, deps], fn)
+> 定义一个使用 [Orchestrator](https://github.com/robrich/orchestrator) 实现的任务（task）。
+
+在前面两个api中，虽然定义了一个输入和输出操作，并且看起来已经可以方便的使用。但是，如果定义了成百个这样的操作肯定是会杂乱无章，难以维护。所以需要gulp.task来组织这些操作，并且给这些操作取一个有意义的名字，一般我们用此操作处理的文件的文件名为task名。
+
+```javascript
+gulp.task('wxml', () => {
+  return gulp
+    .src(`${src}/**/*.wxml`)
+    .pipe(gulp.dest('./dist'))
+})
+```
+
+这样在shell中输入`gulp wxml`便可以执行对应回调函数中的一系列操作。
+
+如果在执行当前操作时，想要先执行指定操作，指定操作完成后再执行当前操作，就需要在第二个中传入一个为依赖任务名称的数组。
+
+
+```javascript
+gulp.task('wxml', () => {
+  return gulp
+    .src(`${src}/**/*.wxml`)
+    .pipe(gulp.dest('./dist'))
+})
+
+// 在执行json任务时会先执行wxml任务
+gulp.task('json', ['wxml'], () => {
+  return gulp
+    .src(`${src}/**/*.json`)
+    .pipe(gulp.dest(dist))
+})
+```
+
+### gulp.watch(glob [, opts], tasks) 或 gulp.watch(glob [, opts, cb])
+> 监视文件，并且可以在文件发生改动时候做一些事情。它总会返回一个 EventEmitter 来发射（emit）change事件。
+
+这个功能很好理解啦，当修改代码时，被修改的文件会执行相对应的task来更新输出文件。
+
+```javascript
+gulp.task('wxss', () => {
+  gulp
+    .src('./src/**/*.scss')
+    .pipe(gulp.dest('./dest'))
+})
+
+gulp.task('watch', () => {
+  gulp.watch('./src/**/*.scss', ['wxss'])
+})
+```
+
+这样在每次修改*.scss文件时，都会自动执行wxss的task。
+
+## 常用插件
+如果仅仅是依靠gulp的4个API实现的功能十分有限，真正强大的功能在其丰富的插件数量，下面来介绍项目中常用的插件。==注：以下实例代码默认引入gulp==
+
+### [stream-combiner2](https://www.npmjs.com/package/stream-combiner2)
+> Turn a pipeline into a single stream. Catch the error.
+
+此插件可以将许多个在pipeline中的stream转换为一个单一stream，并且捕捉这过程中的错误。
+
+使用方式：
+
+```javascript
+const combiner = require('stream-combiner2')
+
+gulp.task('test', () => {
+  const combined = combiner.obj([
+    gulp.src('./src/**/*.js'),
+    uglify(),
+    gulp.dest('./dist')      
+  ])
+  
+  // 监听在上面数组中抛出的错误，由自己定义的handleError函数处理
+  combined.on('error', handleError)
+})
+```
+
+### [gulp-sass](https://www.npmjs.com/package/gulp-sass)
+> Sass plugin for Gulp.
+
+可以将Sass编译成CSS，使用方式：
+
+```javascript
+const sass = require('gulp-sass')
+
+gulp.task('sass', () => {
+  return gulp.src('./sass/**/*.scss')
+    // 直接调用即可
+    .pipe(sass().on('error', sass.logError))
+    .pipe(gulp.dest('./css'));
+})
+```
+
+### [gulp-rename](https://www.npmjs.com/package/gulp-rename)
+> rename files easily.
+
+顾名思义，用来给文件重命名：
+
+```javascript
+const sass = require('gulp-sass')
+const rename = require('gulp-rename')
+
+gulp.task('wxss', () => {
+  gulp.src('./src/**/*.scss')
+    .pipe(sass().on('error', sass.logError)
+    // 将编译好的sass文件的后缀重命名为小程序支持的.wxss
+    .pipe(rename(path => (path.extname = '.wxss')))
+    .pipe(gulp.dest('./dist'))
+})
+```
+
+### [gulp-postcss](https://www.npmjs.com/package/gulp-postcss)/[postcss-px2rpx](https://www.npmjs.com/package/postcss-px2rpx)/[postcss-font-base64](https://www.npmjs.com/package/postcss-font-base64)
+> PostCSS gulp plugin to pipe CSS through several plugins, but parse CSS only once.
+
+PostCSS的Gulp插件，至于什么是PostCSS，引用[知乎用户顾轶灵](https://www.zhihu.com/question/46312839/answer/190520136)的解释：
+> PostCSS 就是 CSS 界的 Babel。
+
+> 它们本身只做两件事：
+1. 把源代码（或者符合一定条件的扩展语法）解析为一个自带遍历访问、节点操作接口的树；
+2. 把语法树输出为代码字符串。
+
+postcss-px2rpx是通过postcss将px转化为小程序中使用的rpx，postcss-font-base64是通过postcss将本地字体转换成base64编码。下面示例代码是结合stream-combiner2/gulp-rename/gulp-sass来实现wxss任务的处理：
+
+```javascript
+const postcss = require('gulp-postcss')
+const pxtorpx = require('postcss-px2rpx')
+const base64 = require('postcss-font-base64')
+const sass = require('gulp-sass')
+const combiner = require('stream-combiner2')
+
+gulp.task('wxss', () => {
+  const combined = combiner.obj([
+    gulp.src('./src/**/*.{wxss,scss}'),
+    sass().on('error', sass.logError),
+    postcss([pxtorpx(), base64()]),
+    rename(path => (path.extname = '.wxss')),
+    gulp.dest('./dist')
+  ])
+
+  combined.on('error', handleError)
+})
+```
+
+### [gulp-babel](https://www.npmjs.com/package/gulp-babel)
+> Use next generation JavaScript, today, with Babel. 
+
+让你在gulp中使用babel，不过在使用之前应提前安装babel-core和babel-preset-env。
+
+## 小程序配合Gulp实例
+[Gulp 配置模板文件](https://gist.github.com/MeloGuo/13258f2fc84e0db46b9eb80939ad6511)
+
+
+#### 著作权声明
+
+本文作者 [郭梓梁](https://www.zhihu.com/people/mluka/activities)，首次发布于 [MeloGuo Blog](http://meloguo.com)，转载请保留以上链接
