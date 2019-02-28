@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Gulp 学习笔记"
-subtitle:   "虽然过时了，但也了解下"
+subtitle:   "虽然 gulp 过时了，但也了解下"
 date:       2018-05-10
 author:     "MeloGuo"
 header-img: "img/post-bg-js-version.jpg"
