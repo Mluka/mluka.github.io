@@ -62,9 +62,38 @@ else this.setData({ push: true })
 在实际的操作中，我们发现在键盘被调起后会有概又自动收回。经过排查发现时onBlur函数的问题，在onBlur函数中，我们手动的设置`focus`为`false`，但其实并不需要这一步操作，反而带来了副作用。在我们去除了这部分代码后，键盘自动收起的问题得到了解决。
 
 ## 封装起来
-虽然我们完成了这次任务的需求，但是显而易见的，这样的任务在未来肯定还会再次出现。所以机智的我们应该赶快把整套流程封装起来，以便下次直接调用。
+虽然我们完成了这次任务的需求，但是显而易见的，这样的任务在未来肯定还会再次出现。所以机智的我们应该赶快把整套流程封装起来，以便下次直接调用。但是在封装之前需要思考几个问题：  
 
-![](https://user-gold-cdn.xitu.io/2018/7/22/164c2a0d62579477?w=1144&h=810&f=jpeg&s=268945)
+1. 如果传入的 selector 是不存在，但是轮询还在继续怎么办？
+2. 如果用户进入页面后迅速退出页面，但是轮询还在继续怎么办？
+
+这两个问题最终的落脚点均为轮询的结束问题。解决方式其实也很简单，增加一个最大轮询次数即可。所以封装后的代码如下：
+
+```javascript
+function onNodeRefsReady(selector, time = 50) {
+  return new Promise((resolve, reject) => {
+    const query = wx.createSelectorQuery()
+    const MAX_POLLING_COUNT = Math.floor(5000 / time)
+    let i = 0
+
+    let timer = setInterval(() => {
+      if (++i > MAX_POLLING_COUNT) {
+        clearInterval(timer)
+        timer = null
+        reject(new Error(`Can not find '${selector}' of null`))
+      }
+
+      query.select(selector).boundingClientRect(rect => {
+        if (rect !== null && timer !== null) {
+          clearInterval(timer)
+          timer = null
+          resolve(rect)
+        }
+      }).exec()
+    }, time)
+  })
+}
+```
 
 那么这时我们使用的方式就是这样的：
 
@@ -75,11 +104,11 @@ const Util = require("xxx") // 引入封装的库
  * 生命周期函数--监听页面初次渲染完成
  */
 onReady: function () {
-  Util.onTotalReady('#comment-section', 50, rect => {
+  Util.onNodeRefsReady('#comment-section').then(rect => {
     if (rect.bottom < 500) this.setData({ push: false })
     else this.setData({ push: true }}
     this.setData({ focus: true })
-  })
+  }).catch(console.error)
 }
 ```
 
