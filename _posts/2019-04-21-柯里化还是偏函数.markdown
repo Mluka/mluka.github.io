@@ -1,0 +1,68 @@
+---
+layout:     post
+title:      "【翻译】柯里化还是偏函数应用？"
+subtitle:   "偏函数应用与柯里化"
+date:       2019-04-21
+author:     "MeloGuo"
+header-img: "img/post-bg-curry-or-partial-application.jpeg"
+tags:
+    - 翻译
+    - 函数式编程
+---
+
+许多刚开始学习函数式编程的人都会对柯里化和偏函数应用之间的区别感到困惑。实际上，直到最近也很少能看到在 JavaScript 中使用真正的柯里化，而且许多函数工具库所声称的的`curry()`方法并不是柯里化函数，而是偏函数应用！
+
+如果你对这两者之间的区别感到困惑，那么接下来的内容将会为你解释清楚，但是在最开始，让我们先来点名词解释：
+
+## 定义
+**应用（Application）：**调用一个函数并传入它的全部参数且得到返回值的过程
+
+**偏函数应用（Partial Application）：**调用一个函数并传入它的部分参数的过程。被部分调用的函数得到返回值后以备稍晚使用。换句话说，一个函数**接收一个多参函数并且返回一个接收较少参数的函数**。偏函数应用向返回的函数中传入了一个或多个的参数，并且被返回的函数接收剩余的参数来完成函数的执行调用。
+
+**柯里化（Curry）：**一个函数**接收一个多参函数并且返回一个只为一个参数的函数。**
+
+## 为什么这事这么重要？
+James Coglan 在他精彩的演讲中帮助解释了为什么你应该在乎这件事：
+
+[James Coglan: Practical functional programming: pick two](https://www.youtube.com/watch?v=XcS-LdEBUkE&feature=youtu.be)
+
+James 讲到的特性都依赖于函数类型一致性。函数是有类型的。例如，一个函数接收了另一个函数和一个数组并且返回了一个数组（`Funciton.prototype.map()`）：
+
+```javascript
+(fn, array) -> array
+```
+* 一个偏函数应用**可能有或可能没有一个可预知的返回类型**
+* 一个柯里化函数总是返回另一个只接收一个参数的函数，直到所有的参数都被传入
+
+James 讲的所有的神奇实现都依赖于**函数类型一致性。**例如他谈到 promises 是如何能够按照时序来抽象你的程序依赖逻辑。
+
+Promises 能做到是因为它提升了所有你调用的函数以便于返回值的类型总是一致的：所有的函数都返回 promises 同样的类型，这意味着你能够用一种标准的方式使用它们。James 谈论了许多关于 promises 的好处。
+
+在这种情况下，promises 是像**函子（functors）**一样的容器，能够提供一种标准的方式去处理容器中的数据，不用关心数据的类型。
+
+> **警告：**谷歌一下函数式编程的术语会令人胆怯—但实际上它们都比学术上描述的容易很多。
+
+通过操作**容器**而不是**容器中的值**，你能够创造许多通用的函数，它们将会通过使用**容器的接口，统一的作用在任何值上。**
+
+正如 promises，柯里化函数均返回使用统一接口的容器。这种情况下，**返回的函数都是容器**。你只需要一直调用返回的函数，直到你已经传入所有的参数然后最终得到计算结果。
+
+换句话说，**一个柯里化函数是一个能够提升它自己所有参数的函数，**以便于你能够通过一种标准的方式处理这些参数。
+
+最常见的提升的例子便是函数组合（function composition）了，例如`c(x) = f(g(x))`。函数组合接收一个函数的返回值并且将其作为参数传给另一个函数。因为一个函数只能返回一个值，函数被调用时传入的参数也必须是一元的。
+
+除此之外，**柯里化函数还有内建的迭代器机制：**一个柯里化函数一次调用将会部分的传入一个参数，从不做处理一个参数之外的更多工作。调用它返回的函数有着告诉函数去执行下一步操作的效果。
+
+例如，柯里化函数a(b)(c);不必立即去传入c。它可以被分解成如下的样子：
+
+```javascript
+const next = a(b);
+doSomeStuff().then(() => next(c));
+```
+你应该对偏函数应用和柯里化之间的不同有一个更加清晰地理解，以及为何你想要去柯里化你的函数。
+
+在函数式编程中，最常见的使用柯里化的原因便是让函数更容易被组合。更多关于此话题的讨论，可阅读：[ Master the JavaScript Interview: What is Function Composition?](https://medium.com/javascript-scene/master-the-javascript-interview-what-is-function-composition-20dfb109a1a0)
+
+#### 著作权声明
+
+本文译自 [Curry or Partial Application](https://medium.com/javascript-scene/curry-or-partial-application-8150044c78b8)   
+译者 [郭梓梁](https://www.zhihu.com/people/mluka/activities)，首次发布于 [MeloGuo Blog](http://meloguo.com)，转载请保留以上链接
