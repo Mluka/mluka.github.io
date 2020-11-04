@@ -1,0 +1,50 @@
+---
+layout: post
+title: "依赖注入与控制反转"
+subtitle: "反过身来，让我注入"
+date: 2019-11-09
+author: "MeloGuo"
+header-img: "img/post-bg-interview-first-time.jpg"
+tags:
+  - 设计模式
+---
+
+# 依赖注入与控制反转
+
+依赖注入（DI）和控制反转（IOC）基本是一个意思，因为说起来谁都离不开谁。
+简单来说，a 依赖 b，但 a 不控制 b 的创建和销毁，仅使用 b，那么 b 的控制权交给 a 之外处理，这叫控制反转（IOC），而 a 要依赖 b，必然要使用 b 的 instance，那么
+
+1. 通过 a 的接口，把 b 传入；
+2. 通过 a 的构造，把 b 传入；
+3. 通过设置 a 的属性，把 b 传入；
+   这个过程叫依赖注入（DI）。
+
+那么什么是 IOC Container？
+随着 DI 的频繁使用，要实现 IOC，会有很多重复代码，甚至随着技术的发展，有更多新的实现方法和方案，那么有人就把这些实现 IOC 的代码打包成组件或框架，来避免人们重复造轮子。
+所以实现 IOC 的组件或者框架，我们可以叫它 IOC Container。
+
+**依赖注入解决办法应该达到的目标：**
+
+- 我们应该能够注册依赖关系
+- 注入应该接受一个函数，并返回一个我们需要的函数
+- 我们不能写太多东西——我们需要精简漂亮的语法
+- 注入应该保持被传递函数的作用域
+- 被传递的函数应该能够接受自定义参数，而不仅仅是依赖描述
+
+依赖模块与被依赖模块的初始化信息解耦
+
+这种叫做 服务定位模式（Service Locator, SL）
+
+```javascript
+const fs = require("fs");
+```
+
+对于前端来说，
+服务定位模式肯定更常见，它的优点就是简单，缺点是所有模块都需要依赖定位者。
+依赖注入模式的优点是控制反转，更利于组件化，缺点是不是前端的基础能力。
+
+[design patterns - What is dependency injection? - Stack Overflow](https://stackoverflow.com/questions/130794/what-is-dependency-injection)
+
+#### 著作权声明
+
+本文作者 [郭梓梁](https://www.zhihu.com/people/mluka/activities)，首次发布于 [MeloGuo Blog](http://meloguo.com)，转载请保留以上链接

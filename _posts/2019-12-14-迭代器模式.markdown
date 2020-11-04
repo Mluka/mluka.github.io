@@ -1,0 +1,99 @@
+---
+layout: post
+title: "迭代器模式"
+subtitle: "下一个，下一个，下一个..."
+date: 2019-12-14
+author: "MeloGuo"
+header-img: "img/post-bg-interview-first-time.jpg"
+tags:
+  - 设计模式
+---
+
+> 迭代器模式是指提供一种方法顺序访问一个聚合对象中的各个元素， 而又不需要暴露该对象的内部表示。迭代器模式可以把迭代的过程从业务逻辑中分离出来，在使用迭代器模式之后，即使不关心对象的内部构造，也可以按顺序访问其中的每个元素。
+
+- **内部迭代器**
+  内部迭代器的内部定义好了迭代规则，它完全接手整个迭代过程，外部只需要一次调用。优点是外部仅需一次调用，简洁高效。缺点是功能单一，难以拓展。
+
+- **外部迭代器**
+  外部迭代器必须显式地请求迭代下一个元素。虽然调用方式相对复杂，但它的适用面更广，也能满足更多变的需求。
+
+## 中止迭代器
+
+在内部迭代器中使用 break 即可中止迭代。
+在外部迭代器中添加一个`return`方法，调用后即可中止迭代器。
+
+## JS 中的外部迭代器
+
+调用生成器函数即可获得迭代器，迭代器拥有三个方法为`next` `return`和`throw`。调用`next`方法即可让迭代器内部进行一次迭代（即从当前`yield`运行到下一次`yield`），同时返回一个对象含有`value`和`done`属性，分别表示此次迭代的返回值和是否迭代结束。
+
+```javascript
+function* gen() {
+  while (true) {
+    var value = yield null;
+    console.log(value);
+  }
+}
+
+var g = gen();
+g.next(1);
+// "{ value: null, done: false }"
+g.next(2);
+// 2
+// "{ value: null, done: false }"
+```
+
+## 可迭代对象
+
+[Symbol.iterator](http://127.0.0.1:52743/Dash/daioecfi/developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/iterator.html)
+
+## 应用实例
+
+- **分支循环嵌套问题**
+  现有一个需求是根据不同的浏览器获取相应的上传组件。在不同的浏览器环境下，选择的上传方式是不一样的。因为使用浏览器的上传控件进行上传速度快，可以暂停和续传，所以我们首先会优先使用控件上传。如果浏览器没有安装上传控件，则使用 Flash 上传，如果连 Flash 也没装，那就只好使用浏览器原生的表单上传。
+  我们把每种获取 upload 对象的方法都封装在各自的函数里，然后使用一个迭代器，迭代获取这些 upload 对象，直到获取到一个可用的为止：
+
+```javascript
+const getActiveUploadObj = function () {
+  try {
+    return new ActiveXObject("xxxxx");
+  } catch (e) {
+    return false;
+  }
+};
+
+const getFlashUploadObj = function () {
+  if (supportFlash()) {
+    // return xxxx
+  }
+  return false;
+};
+
+const getFormUploadObj = function () {
+  // return xxxx
+};
+```
+
+所以迭代器需要做下面几步工作。
+
+```javascript
+const iteratorUploadObj = function (...args) {
+  for (let i = 0; i < args.length; i++) {
+    let uploadObj = args[i]();
+    if (uploadObj !== false) {
+      return uploadObj;
+    }
+  }
+};
+
+const uploadObj = iteratorUploadObj(
+  getActiveUploadObj,
+  getFlashUploadObj,
+  getFormUploadObj
+);
+```
+
+这样当以后想要拓展新方法时只需要编写遵循规则的获取 uploadObj 的函数然后将其放入参数即可，能够很方便地维护和拓展代码。像这种需要大量分支判断的需求便可以优雅的通过迭代器模式来实现。
+
+#### 著作权声明
+
+本文作者 [郭梓梁](https://www.zhihu.com/people/mluka/activities)，首次发布于 [MeloGuo Blog](http://meloguo.com)，转载请保留以上链接

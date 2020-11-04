@@ -1,0 +1,26 @@
+---
+layout: post
+title: "gitignore不生效怎么办"
+subtitle: "不该放的东西被存起来了"
+date: 2020-07-05
+author: "MeloGuo"
+header-img: "img/post-bg-git.png"
+tags:
+  - git
+---
+
+`gitignore` 文件是用来指定忽略掉还未被添加（untracked）到 Git 中的文件。如果文件已经被添加（tracked）到 Git 中，那么 `gitignore` 是不会对其产生影响的。
+
+如果让已经添加的文件也遵循 `gitignore` 文件中的规则，需要对目标文件使用 `git rm —cached` 命令将其移出相关目录。
+
+例如在项目中向 Git 添加了 `test/index.js` 文件，同时也在 `gitignore` 文件中写下此文件。当你修改文件内容时，此文件并不会被忽视，依然会发生状态变更。所以在这时使用 `git rm --cached test/index.js` 就可以将此文件从 Git 中移除（本地文件依然存在），将改动提交后再对此文件进行任何修改都不会引起 Git 的状态变更。
+
+需要注意的是，谨慎使用 `git rm -r --cached .` 遍历整个项目，因为如果你的 `gitignore` 文件是从模板拷贝的话可能会在意料之外忽略一些有必要保留的文件（我就犯过把 typings 文件夹忽略的错误）。所以最好还是针对自己已知的指定文件进行操作。
+
+**参考资料：**
+[Git-忽略规则(.gitignore 配置）不生效原因和解决（转载记录） - 知乎](https://zhuanlan.zhihu.com/p/102890728)
+[Git - gitignore Documentation](https://git-scm.com/docs/gitignore)
+
+#### 著作权声明
+
+本文作者 [郭梓梁](https://www.zhihu.com/people/mluka/activities)，首次发布于 [MeloGuo Blog](http://meloguo.com)，转载请保留以上链接

@@ -1,0 +1,47 @@
+---
+layout: post
+title: "微信小程序转义字符渲染问题"
+subtitle: "日常吐槽小程序"
+date: 2020-04-07
+author: "MeloGuo"
+header-img: "img/post-bg-js-version.jpg"
+tags:
+  - 微信小程序
+---
+
+# 微信小程序中转义字符的渲染问题
+
+今天开发遇到了一个诡异的现象，后端返回的字符串中包含了 `\n` 转义字符。将其放在 `<text>` 组件下即可实现换行的效果。
+
+但是将内容通过 `setData` 渲染到页面上后，`\n` 却变成了 `\\n` 。这就造成了二次转义，无法实现换行的效果，其他转义字符也是同样的现象。在查阅了相关资料后并没有发现微信小程序的相关解释，所以只能自己解决。
+
+二次转义的操作发生在 `wxml` 文件中，所以只能使用 `wxs` 编写逻辑代码进行过滤。
+
+```html
+<wxs module="textTool">
+var myFilter = function(text) {
+    if (text) {
+        var pattern = "\\\\n";
+        var target = "\n";
+        var reg = getRegExp(pattern, "g");
+        return text.replace(reg, target);
+    }
+}
+
+module.exports = {
+  filterN: myFilter
+}
+</wxs>
+```
+
+在需要进行过滤的地方使用此方法即可：
+
+```html
+<wxs src=“../../util/wxs/text.wxs” module=“textTool” />
+
+<view>{{textTool.filterN(text)}}</view>
+```
+
+#### 著作权声明
+
+本文作者 [郭梓梁](https://www.zhihu.com/people/mluka/activities)，首次发布于 [MeloGuo Blog](http://meloguo.com)，转载请保留以上链接

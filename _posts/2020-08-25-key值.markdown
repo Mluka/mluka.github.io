@@ -1,0 +1,141 @@
+---
+layout: post
+title: "列表渲染中的 Key 值与组件更新"
+subtitle: "很基础却容易被忽视"
+date: 2020-08-25
+author: "MeloGuo"
+header-img: "img/post-bg-wechat-miniprogram.jpg"
+tags:
+  - 微信小程序
+  - JavaScript
+---
+
+上周在圈子首页发生一个诡异的 Bug，用户打卡后的内容会和上一条内容的图片相同！但是点击预览大图又不同，并且刷新也不会好，只有退出再重新进入页面后才会恢复。
+
+@张译文 临时修复的一版，将 `<x-image>` 组件换成 `<image>` 便解决了问题。但是在我俩后续深入发掘问题时，发现了隐藏在表象背后的惊人秘密……
+
+## TL;DR
+
+如果你不喜欢故弄玄虚的风格，可以一开始就告诉你结论，此 Bug 最根本的原因就是微信小程序中老生常谈的列表渲染 key 值问题以及组件更新机制。但如此老生常谈还容易被开发者所忽略，所以在本篇文章想就这个例子进行讲解分析。
+
+## 分析 Bug 原因
+
+其实我在第一次复现这个 Bug 时就确定了一定是列表渲染的 key 值问题，所以在这里一步一步给各位分析。
+
+在项目中，圈子首页的日记图片代码如下所示：
+
+```html
+<!-- 为了防止干扰，多余的代码我就不展示了 -->
+<x-image
+  wx:for="“{{noteData.notePhoto}}”"
+  wx:key="“{{index}}"
+  src="“{{item}}"
+/>
+```
+
+看到这里有发现什么问题吗？可能你会想，平时我都是这么写的呀。但是这段基本的代码是有语法错误的！在微信小程序中 `wx:key` 接收的值应该是字符串。其实控制台也给出了警告 ⚠️。
+![](A6F14EB5-C2B2-4875-8E1C-F8246CD12056.png)
+
+解决这个问题，将 key 值改为正确的字符串 `index`，再次尝试。发现并没有用，Bug 依然存在。看来需要将 key 值改为唯一的值，在 `noteData.notePhoto` 这个数组中是一个个图片 URL 的字符串，肯定不会有重复，所以可以将 `*this` 放入 `wx:key` 中来实现 key 值的唯一。
+
+再次尝试会发现 Bug 解决了，但是并没有结束！你应该有三个问题要问：
+
+1. 为什么更换 key 值就解决了？
+2. 为什么 `<image>` 的 key 值没影响，而 `<x-image>` 的 key 值有影响？
+3. `<x-image>` 也是由一个个 FeedCard 组件包裹的，那它的 key 值有没有问题呢？
+
+## key 值
+
+### 什么是 key 值
+
+Key 值的概念是随着前端由手动操作 DOM 转向数据驱动视图（Data Driven View）而出现的。在数据驱动视图时经常需要进行列表渲染，而为了让视图层更高效的更新列表，便出现了 key 值。它可以帮助视图层识别哪些元素改变了，比如被添加或删除。因此你应当给数组中的每一个元素赋予一个确定的标识。
+
+### 如何使用 key 值
+
+不同框架的文档中都写的很清楚：
+
+- Vue [列表渲染 — Vue.js](https://cn.vuejs.org/v2/guide/list.html#%E7%BB%B4%E6%8A%A4%E7%8A%B6%E6%80%81)
+- React [列表 & Key – React](https://zh-hans.reactjs.org/docs/lists-and-keys.html#keys)
+- 微信小程序 [列表渲染 - 微信开放文档](https://developers.weixin.qq.com/miniprogram/dev/reference/wxml/list.html#wx:key)
+
+在这里要强调下**微信小程序**：  
+`wx:key` 的值以两种形式提供
+
+- 字符串，代表在 for 循环的 array 中 item 的某个 property，该 property 的值需要是列表中唯一的字符串或数字，且不能动态改变。
+- 保留关键字 \*this 代表在 for 循环中的 item 本身，这种表示需要 item 本身是一个唯一的字符串或者数字。
+
+所以说 `wx:key` 是只能接受字符串的！不要再出现 `index` 或者 `item.id` 这种写法，统统无效。
+
+### 为什么需要 key 值
+
+假设我们有一个列表项
+
+```html
+<ul>
+  <li>勇士</li>
+  <li>猛龙</li>
+</ul>
+```
+
+在尾部添加一个新的项，`[‘勇士’, ‘猛龙’].push(‘湖人’)`。这时视图层会将新的数据和旧的进行比较，在比较中发现前两项都是完全相同的，只有最后一项增加了，所以可以很轻松的在末尾新渲染一个列表项上去。
+
+如果这时想在头部插入新的项，`[‘勇士’, ‘猛龙’].unshift(‘骑士’)`。那么 DOM 该如何更新呢？要是按照之前的逻辑，视图层会发现，第一项变化了，重新渲染，第二项变化了，重新渲染，第三项新增的，渲染。这样显然是不合理的，应该是只有第一项重新渲染，而后两项进行移动。
+
+```html
+<ul>
+  <li key="“2016”">骑士</li>
+  <li key="“2018”">勇士</li>
+  <li key="“2019”">猛龙</li>
+</ul>
+```
+
+现在视图层就可以知道只有 key 值为 ‘2016’ 的元素是新元素，其他两个仅仅是发生了移动。
+
+所以 key 值的目的是为了帮助视图层分辨列表项中，谁是新插入的需要重新渲染？谁是原来就存在的只要移动下位置就好？来提高渲染效率。
+
+## 微信小程序组件更新机制
+
+文档中写的很清楚，当一个组件第一次被挂载到页面时会依次执行 `created`, `attached`, `ready` 函数。如果只是数据进行了更新但并没有卸载组件重新挂载，这些生命周期函数都不会触发，而是会触发更新属性对应的 `observer` 函数。
+
+所以通过这些特性，就可以轻松的判断出一个组件是否无意义的重新渲染浪费了性能，还是高效的移动减少了渲染时间（还能给手机省电哦）。
+
+## 来康康视频
+
+在这里，我通过一个视频结合上面的内容和 Bug 来为你还原 Debug 全过程。
+[通过一个 Bug 讲解 key 值与组件更新机制.mp4](https://drive.weixin.qq.com/s?k=AJQAgwckAAY6hCaW0hAHsAcQbaAPE)
+
+看完文章和视频就能回答上面的三个问题：
+
+1. 为什么更换 key 值就解决了？
+   列表正常渲染，新插入组件走 attached 函数了。
+
+2. 为什么 `<image>` 的 key 值没影响，而 `<x-image>` 的 key 值有影响？
+   因为传入的 src 是正确的，但 `<x-image>` 处理 src 的位置错误了。
+
+3. `<x-image>` 也是由一个个 FeedCard 组件包裹的，那它的 key 值有没有问题呢？
+   当然有啦～
+
+## 总结
+
+造成此 Bug 的原因
+
+- 列表渲染 key 值错误
+- 图片组件处理 src 位置错误
+
+完整所以修复这个 Bug 的三个步骤
+
+1. 给 `<feed-card-note>` 加上正确的 key 值
+2. 给 `<x-image>` 加上正确的 key 值
+3. 将 `<x-image>` 组件中处理 URL 的过程放到 src 属性的 observer 回调函数中
+
+相信现在的你已经完全搞明白列表渲染中的 key 值到底是个什么东西了，那么在以后开发时如果突然想不来，就赶紧来翻翻这篇文档，提高我们的性能，减少 Bug 吧！
+
+完。
+
+> 参考资料  
+>  [Index as a key is an anti-pattern - Robin Pokorny - Medium](https://medium.com/@robinpokorny/index-as-a-key-is-an-anti-pattern-e0349aece318)  
+>  [Reconciliation – React](https://reactjs.org/docs/reconciliation.html#recursing-on-children)
+
+#### 著作权声明
+
+本文作者 [郭梓梁](https://www.zhihu.com/people/mluka/activities)，首次发布于 [MeloGuo Blog](http://meloguo.com)，转载请保留以上链接

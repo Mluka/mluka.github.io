@@ -1,0 +1,124 @@
+---
+layout: post
+title: "【翻译】赋值逻辑操作符"
+subtitle: "补丁上面打补丁，globalThis 实属无奈之举"
+date: 2020-06-11
+author: "MeloGuo"
+header-img: "img/post-bg-js-version.jpg"
+tags:
+  - 翻译
+  - JavaScript
+---
+
+# ECMAScript 提案：逻辑赋值操作符
+
+[ECMAScript 提案 “逻辑赋值运算符"](https://github.com/tc39/proposal-logical-assignment) 引入了以下复合赋值运算符。
+
+- `a ||= b`
+- `a &&= b`
+- `a ??= b`
+
+## 现存的复合赋值运算符
+
+JavaScript 已经存在以下几种复合赋值操作符：
+
+- 算数赋值操作符：`+= -= *= /= %= **=`
+- 位赋值操作符：`&= ^= |=`
+- 位移赋值操作符：`<<= >>= >>>=`
+
+每个赋值操作符的工作原理都是如下的模式（op 为操作符）：
+
+- 表达式：`a op= b`
+- 等价于：`a = a op b`
+
+## 回顾：短路
+
+在开始尝试提案中的操作符之前，我们需要简短的回顾和复习一下 _短路操作符_。
+
+逻辑操作符 `|| && ??` 均为短路操作符 - 它们的第二个操作数只有在第一个操作数没有决定结果时才会被计算：
+
+| 操作符    | 等价于                                   |
+| --------- | ---------------------------------------- |
+| `a        |                                          | b`  | `a ? a : b`  |
+| `a && b`  | `!a ? a : b`                             |
+| `a ?? b`  | `a !== undefined && a !== null ? a : b`  |
+
+## 提案的逻辑赋值操作符
+
+逻辑赋值操作符和其他复合赋值操作符行为有所不同：
+
+| 赋值操作符 | 等价于          |
+| ---------- | --------------- |
+| `a         |                 | = b`  | `a |  | (a = b)`  |
+| `a &&= b`  | `a && (a = b)`  |
+| `a ??= b`  | `a ?? (a = b)`  |
+
+为什么 `a ||= b`  等价于 `a || (a = b)`  而不是 `a = a || b`  呢？
+
+前者有短路的好处：只有当 a 的值为 false 时，赋值操作才会被执行。因此，只有在必要的情况下才会进行赋值。相反，后面的表达式总是会执行一次赋值。
+
+## 举个例子：使用 `??=`  添加丢失的属性
+
+```javascript
+const books = [
+  {
+    isbn: "123",
+  },
+  {
+    title: "ECMAScript Language Specification",
+    isbn: "456",
+  },
+];
+
+// 当属性 .title 丢失时赋值
+for (const book of books) {
+  book.title ??= "(Untitled)";
+}
+
+assert.deepEqual(books, [
+  {
+    isbn: "123",
+    title: "(Untitled)",
+  },
+  {
+    title: "ECMAScript Language Specification",
+    isbn: "456",
+  },
+]);
+```
+
+## 再来个例子：解体一个表达式
+
+观察下面的函数，其返回一个铺展成了多行的表达式：
+
+```javascript
+function canContainNumber(value) {
+  return (
+    typeof value === "number" ||
+    typeof value === "bigint" ||
+    typeof value === "string"
+  );
+}
+
+assert.equal(canContainNumber(""), true);
+assert.equal(canContainNumber(Symbol()), false);
+```
+
+这个表达式可以被解体为如下的写法：
+
+```javascript
+function canContainNumber(value) {
+  let result = false;
+  result ||= typeof value === "number";
+  result ||= typeof value === "bigint";
+  result ||= typeof value === "string";
+  return result;
+}
+```
+
+注意：这里可能有其他更好的方式去改进开始的代码，例如使用 `switch`  语句。
+
+### 著作权声明
+
+本文译自 [ECMAScript proposal: Logical assignment operators](https://2ality.com/2020/06/logical-assignment-operators.html)
+译者 [郭梓梁](https://www.zhihu.com/people/mluka/activities)，首次发布于 [MeloGuo Blog](http://meloguo.com)，转载请保留以上链接。
