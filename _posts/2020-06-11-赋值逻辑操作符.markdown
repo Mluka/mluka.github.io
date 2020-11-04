@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "【翻译】赋值逻辑操作符"
-subtitle: "补丁上面打补丁，globalThis 实属无奈之举"
+subtitle: "只能靠抄 Ruby 过活的样子"
 date: 2020-06-11
 author: "MeloGuo"
 header-img: "img/post-bg-js-version.jpg"
