@@ -84,5 +84,9 @@ friends: [
     {
         title: "Hux Blog",
         href: "http://huangxuan.me"
+    },
+    {
+        title: "卡拉搜索",
+        href: "https://kalasearch.cn/"
     }
 ]
